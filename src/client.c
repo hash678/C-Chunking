@@ -101,7 +101,7 @@ int main(){
     int current_chunk = 0;
 
 
-    FILE *fp = fopen("./sample/test1.pdf", "w");
+    FILE *fp = fopen("./sample/test1.png", "w");
 
 
     while (current_chunk < number_of_chunks){

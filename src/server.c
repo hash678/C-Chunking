@@ -102,12 +102,15 @@ int main() {
 
 
 
-    long file_size = getFileSize("./sample/pdf-1.pdf");
+    long file_size = getFileSize("./sample/test.pdf");
     printf("File Size: %lu\n", file_size);
     int chunk_size = (file_size / number_of_chunks);
     chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
+
+    printf("Chunk Size: %d\n", chunk_size);
     
-    FILE *f = fopen("./sample/test.png", "r");
+    FILE *f = fopen("./sample/test.mp4", "r");
+    printf("File Opened");
 
 
     //Sending the chunk size
