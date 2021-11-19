@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 
 #define MAX_SIZE 1024
-#define PORT 9004
+#define PORT 9003
 #define INT_SIZE 4
 
 
@@ -59,13 +59,10 @@ char* loadFile(char *fileName){
 
 char * createChunk(char *data, int chunkSize,int position, int chunk_pos){
     char *chunk = malloc(chunkSize);
+
     for (int i = 0; i < chunkSize; i++) {
-        if (position + 1 > strlen(data)) {
-            break;
-        } 
         chunk[i] = data[position + i];
     }
-
 
     return chunk;
 }
@@ -81,38 +78,32 @@ int main() {
     int client_socket = accept(network_socket, NULL, NULL);
     
 
-    int number_of_chunks = 0;
-    recv(client_socket, &number_of_chunks, sizeof(number_of_chunks), 0);
+    char  rec_buffer[4];
+    recv(client_socket, rec_buffer, sizeof(rec_buffer), 0);
 
-    printf("Number of chunks: %d\n", number_of_chunks);
+    int number_of_chunks = atoi(rec_buffer);
 
 
     char *file = loadFile("./sample/sample.txt");
     int chunk_size = (strlen(file) / number_of_chunks);
     chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
-
-    printf("Chunks Size: %d\n", chunk_size);
-
-    char temp[4] = "abcd";
-
-    send(network_socket, temp, sizeof(temp), 0);
-
-
-
-    // for (int x=0;x<number_of_chunks;x++){
-    //     char *chunk = createChunk(file,chunk_size,x*chunk_size,x);
-    //     sendFile(client_socket, chunk,chunk_size);
-    //     free(chunk);
-    // }
     
+
+    //Sending the chunk size
+    char chunk_size_str[4];
+    sprintf(chunk_size_str, "%d", chunk_size);
+    sendFile(client_socket, chunk_size_str, INT_SIZE);
+
+
+    for (int x=0;x<number_of_chunks;x++){
+        char *chunk = createChunk(file,chunk_size,(x*chunk_size),x);
+        sendFile(client_socket, chunk,chunk_size);
+        // free(chunk);
+    }
+    
+
 
     close(network_socket);
 
    return 0;
 }
-
-//# chunks  - Client 
-//Chunk Size - Server
-//Size of each packet Server tells client
-//Client ek loop number of chunks
-
