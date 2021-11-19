@@ -9,14 +9,14 @@
 
 
 #include <netinet/in.h>
-#define PORT 9003
+#define PORT 9005
 #define INT_SIZE 8
 // #define LARGE_INT_SIZE 4
 
 
 void createEmptyFile(char *fileName, int x) {
     FILE *fp = fopen(fileName, "w");
-    fseek(fp, x , SEEK_SET);
+    fseek(fp, x-1 , SEEK_SET);
     fputc('\0', fp);
     fclose(fp);
 }
@@ -48,6 +48,12 @@ char* getText(char *data,int size){
    return text;
     }
 
+
+char *cleanChunk(char *chunk, int size){
+    char *text = malloc(size);
+    memcpy(text, chunk, size);
+    return text;
+}
 
 
 // char *getFile(int socket,int chunk_size){
@@ -107,27 +113,44 @@ int main(){
     int number_of_chunks = 128;
     int chunk_size = handshake(network_socket,number_of_chunks);
     
+
+    char extra_space_str[INT_SIZE];
+    recv(network_socket, extra_space_str, INT_SIZE, 0);      
+    int extra_space = atoi(extra_space_str);
+
     int current_chunk = 0;
 
-    createEmptyFile("./sample/test1.png",chunk_size*number_of_chunks);
+
+    createEmptyFile("./sample/test1.png",(chunk_size*number_of_chunks)-extra_space);
     FILE *fp = fopen("./sample/test1.png", "r+b");
 
 
     while (current_chunk < number_of_chunks){
-        char chunk_recv[chunk_size+INT_SIZE+1];
-        recv(network_socket, chunk_recv, chunk_size+INT_SIZE, 0);      
+        char chunk_recv[chunk_size+INT_SIZE+2];
+        recv(network_socket, chunk_recv, chunk_size+INT_SIZE+1, 0);      
         current_chunk += 1;
 
 
         char buffer[INT_SIZE];
-        for (int i=chunk_size;i<chunk_size+INT_SIZE;i++){
+        for (int i=chunk_size;i<chunk_size+INT_SIZE+1;i++){
             buffer[i-chunk_size] = chunk_recv[i];
         }
 
+        int remove_space = chunk_recv[chunk_size+INT_SIZE] == '1' ? extra_space : 0;
+        printf("%c\n",chunk_recv[chunk_size+INT_SIZE]);
+        printf("%d\n",remove_space);
+
+     
         //str to int
         int position = atoi(buffer);
         printf("%d\n", position);
-        saveToFile(fp, chunk_recv, chunk_size,position*chunk_size);
+        
+
+
+        int new_chunk_size = chunk_size ;
+        printf("NEW CHUNK %d\n", remove_space);
+
+        saveToFile(fp, chunk_recv, new_chunk_size ,position*new_chunk_size);
 
     }
     fclose(fp);

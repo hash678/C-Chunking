@@ -10,7 +10,7 @@
 
 #include <netinet/in.h>
 
-#define PORT 9003
+#define PORT 9005
 #define INT_SIZE 8
 
 struct args
@@ -95,6 +95,8 @@ char *loadFile(FILE *file, int size,int position)
     return string;
 }
 
+
+
 int main()
 {
 
@@ -107,33 +109,49 @@ int main()
 
     int number_of_chunks = atoi(rec_buffer);
 
+    // 31 / 4 = 7..2 + 1 = 8
+
     long file_size = getFileSize("./sample/test.png");
     printf("File Size: %lu\n", file_size);
     int chunk_size = (file_size / number_of_chunks);
-    chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
+    chunk_size = chunk_size == 0 ? 1 : chunk_size;
 
     printf("Chunk Size: %d\n", chunk_size);
 
     FILE *f = fopen("./sample/test.png", "r");
     printf("File Opened");
 
+    int extra_space = (chunk_size*number_of_chunks) - file_size;
+    printf("Extra Space: %d\n", extra_space);
+    printf("Number of Chunks: %d\n", number_of_chunks);
+        printf("chunk_size*number_of_chunks: %d\n", chunk_size*number_of_chunks);
+
     //Sending the chunk size
     char chunk_size_str[INT_SIZE];
     sprintf(chunk_size_str, "%d", chunk_size);
     sendData(client_socket, chunk_size_str, INT_SIZE);
+
+
+    //Sending the extra space
+    char extra_space_str[INT_SIZE];
+    sprintf(extra_space_str, "%d", extra_space);
+    sendData(client_socket, extra_space_str, INT_SIZE);
 
     pthread_t threads[number_of_chunks];
 
     for (int x = 0; x < number_of_chunks; x++)
     {
         char *chunk = loadFile(f, chunk_size,x);
-        // sendFile(client_socket, chunk,chunk_size);
-        // free(chunk);
+
+        char extra  = (extra_space != 0 && (number_of_chunks == x+1)) ? '1' : '0';
+
+        chunk[chunk_size+INT_SIZE] = extra;
+
 
         struct args *data = (struct args *)malloc(sizeof(struct args));
         data->socket = client_socket;
         data->chunk = chunk;
-        data->size = chunk_size+INT_SIZE;
+        data->size = chunk_size+INT_SIZE+1;
 
         pthread_t tid;
         pthread_create(&tid, NULL, sendFile, (void *)data);
