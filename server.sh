@@ -1,4 +1,4 @@
 #!/bin/bash
-gcc server.c -o server  
+gcc ./src/server.c -o ./bin/server  
 
-./server
+./bin/server

@@ -1,4 +1,4 @@
 #!/bin/bash
-gcc client.c -o client  
+gcc ./src/client.c -o ./bin/client  
 
-./client
+./bin/client
