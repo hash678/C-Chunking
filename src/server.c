@@ -44,28 +44,41 @@ int setupSocket(){
     return network_socket;
 }
 
-char* loadFile(char *fileName){
+long getFileSize(char *fileName){
     FILE *file = fopen(fileName, "r");
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fclose(file);
+    return size;
+}
+
+char* loadFile(FILE *file, int size){
+  
     if (file == NULL) {
         printf("Error opening file\n");
         exit(1);
     }
+    // fseek(file, 0, SEEK_END);
+    // long fsize = ftell(file);
 
-    char *data = malloc(MAX_SIZE);
-    fgets(data, MAX_SIZE, file);
-    fclose(file);
-    return data;
+    // printf("File size: %ld\n", fsize);
+
+    // fseek(file, 0, SEEK_SET);  /* same as rewind(f); */
+
+    char *string = malloc(size);
+    fread(string, 1, size, file);
+    return string;
 }
 
-char * createChunk(char *data, int chunkSize,int position, int chunk_pos){
-    char *chunk = malloc(chunkSize);
+// char * createChunk(char *data, int chunkSize,int position, int chunk_pos){
+//     char *chunk = malloc(chunkSize);
 
-    for (int i = 0; i < chunkSize; i++) {
-        chunk[i] = data[position + i];
-    }
+//     for (int i = 0; i < chunkSize; i++) {
+//         chunk[i] = data[position + i];
+//     }
 
-    return chunk;
-}
+//     return chunk;
+// }
 
 
 
@@ -84,10 +97,15 @@ int main() {
     int number_of_chunks = atoi(rec_buffer);
 
 
-    char *file = loadFile("./sample/sample.txt");
-    int chunk_size = (strlen(file) / number_of_chunks);
+
+
+    long file_size = getFileSize("./sample/test.png");
+    printf("File Size: %lu\n", file_size);
+    int chunk_size = (file_size / number_of_chunks);
     chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
     
+    FILE *f = fopen("./sample/test.png", "r");
+
 
     //Sending the chunk size
     char chunk_size_str[4];
@@ -96,10 +114,13 @@ int main() {
 
 
     for (int x=0;x<number_of_chunks;x++){
-        char *chunk = createChunk(file,chunk_size,(x*chunk_size),x);
+        char *chunk = loadFile(f,chunk_size);
         sendFile(client_socket, chunk,chunk_size);
-        // free(chunk);
+        free(chunk);
     }
+
+    fclose(f);
+
     
 
 

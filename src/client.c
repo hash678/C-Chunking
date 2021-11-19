@@ -10,16 +10,14 @@
 
 #include <netinet/in.h>
 #define PORT 9003
-#define MAX_SIZE 1024
+#define MAX_SIZE 8000000
 #define INT_SIZE 4
 // #define LARGE_INT_SIZE 4
 
 //Save char array to file
-void save_file(char *filename, char *buffer, int size)
+void saveToFile(FILE *fp, char *buffer, int size)
 {
-    FILE *fp = fopen(filename, "w");
     fwrite(buffer, 1, size, fp);
-    fclose(fp);
 }
 
 int getPosition(char *str,int size){
@@ -54,7 +52,6 @@ int copyData(char* a, char*b,int pos){
         a[i+pos] = b[i];
     }
     int final_pos = pos + strlen(b);
-
 
     //print a
     return final_pos;
@@ -105,9 +102,8 @@ int main(){
     int current_chunk = 0;
 
 
-    char data[MAX_SIZE];
+    FILE *fp = fopen("./sample/test1.png", "w");
 
-    int pos = 0;
 
     while (current_chunk < number_of_chunks){
         char chunk_recv[chunk_size+1];
@@ -117,13 +113,11 @@ int main(){
         // printf("%s\n", chunk_recv);
         current_chunk += 1;
 
-        //append chunk_recv to data
-        pos = copyData(data,chunk_recv,pos);
-    }
-    data[pos+1] = '\0';
+    //append chunk_recv to data
+    saveToFile(fp, chunk_recv, chunk_size);
 
-    printf("%s", data);
-    save_file("./sample/rcv.txt", data, strlen(data));
+    }
+    fclose(fp);
 
  
 
