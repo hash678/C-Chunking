@@ -10,7 +10,6 @@
 
 #include <netinet/in.h>
 #define PORT 9003
-#define MAX_SIZE 8000000
 #define INT_SIZE 4
 // #define LARGE_INT_SIZE 4
 
@@ -96,25 +95,20 @@ int main(){
         return 1;
     }
 
-    int number_of_chunks = 8;
+    int number_of_chunks = 128;
     int chunk_size = handshake(network_socket,number_of_chunks);
     
     int current_chunk = 0;
 
 
-    FILE *fp = fopen("./sample/test1.png", "w");
+    FILE *fp = fopen("./sample/test1.pdf", "w");
 
 
     while (current_chunk < number_of_chunks){
         char chunk_recv[chunk_size+1];
         recv(network_socket, chunk_recv, chunk_size, 0);      
-
-        chunk_recv[chunk_size] = '\0';
-        // printf("%s\n", chunk_recv);
         current_chunk += 1;
-
-    //append chunk_recv to data
-    saveToFile(fp, chunk_recv, chunk_size);
+        saveToFile(fp, chunk_recv, chunk_size);
 
     }
     fclose(fp);
