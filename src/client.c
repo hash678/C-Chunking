@@ -13,16 +13,25 @@
 #define INT_SIZE 8
 // #define LARGE_INT_SIZE 4
 
+
+void createEmptyFile(char *fileName, int x) {
+    FILE *fp = fopen(fileName, "w");
+    fseek(fp, x , SEEK_SET);
+    fputc('\0', fp);
+    fclose(fp);
+}
+
 //Save char array to file
-void saveToFile(FILE *fp, char *buffer, int size)
+void saveToFile(FILE *fp, char *buffer, int size, int position)
 {
+    fseek(fp, position, SEEK_SET);
     fwrite(buffer, 1, size, fp);
 }
 
 int getPosition(char *str,int size){
     char position[INT_SIZE];
-    for (int i= size - 4; i < size; i++){
-        position[i-size+4] = str[i];
+    for (int i= size - INT_SIZE; i < size; i++){
+        position[i-size+INT_SIZE] = str[i];
     }
     int position_int = atoi(position);
     return position_int;
@@ -100,15 +109,25 @@ int main(){
     
     int current_chunk = 0;
 
-
-    FILE *fp = fopen("./sample/test1.png", "w");
+    createEmptyFile("./sample/test1.png",chunk_size*number_of_chunks);
+    FILE *fp = fopen("./sample/test1.png", "r+b");
 
 
     while (current_chunk < number_of_chunks){
-        char chunk_recv[chunk_size+1];
-        recv(network_socket, chunk_recv, chunk_size, 0);      
+        char chunk_recv[chunk_size+INT_SIZE+1];
+        recv(network_socket, chunk_recv, chunk_size+INT_SIZE, 0);      
         current_chunk += 1;
-        saveToFile(fp, chunk_recv, chunk_size);
+
+
+        char buffer[INT_SIZE];
+        for (int i=chunk_size;i<chunk_size+INT_SIZE;i++){
+            buffer[i-chunk_size] = chunk_recv[i];
+        }
+
+        //str to int
+        int position = atoi(buffer);
+        printf("%d\n", position);
+        saveToFile(fp, chunk_recv, chunk_size,position*chunk_size);
 
     }
     fclose(fp);

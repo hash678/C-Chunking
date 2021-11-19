@@ -70,7 +70,7 @@ long getFileSize(char *fileName)
     return size;
 }
 
-char *loadFile(FILE *file, int size)
+char *loadFile(FILE *file, int size,int position)
 {
 
     if (file == NULL)
@@ -79,8 +79,19 @@ char *loadFile(FILE *file, int size)
         exit(1);
     }
 
-    char *string = malloc(size);
+    //int to str
+    char string_str[INT_SIZE];
+    sprintf(string_str, "%d", position);
+
+    char *string = malloc(size+INT_SIZE);
     fread(string, 1, size, file);
+
+    printf("Pos: %d\n", position);
+
+    for (int x = size; x < size+INT_SIZE; x++)
+    {
+        string[x] = string_str[x-size];
+    }
     return string;
 }
 
@@ -91,7 +102,7 @@ int main()
     int network_socket = setupSocket();
     int client_socket = accept(network_socket, NULL, NULL);
 
-    char rec_buffer[4];
+    char rec_buffer[INT_SIZE];
     recv(client_socket, rec_buffer, sizeof(rec_buffer), 0);
 
     int number_of_chunks = atoi(rec_buffer);
@@ -115,14 +126,14 @@ int main()
 
     for (int x = 0; x < number_of_chunks; x++)
     {
-        char *chunk = loadFile(f, chunk_size);
+        char *chunk = loadFile(f, chunk_size,x);
         // sendFile(client_socket, chunk,chunk_size);
         // free(chunk);
 
         struct args *data = (struct args *)malloc(sizeof(struct args));
         data->socket = client_socket;
         data->chunk = chunk;
-        data->size = chunk_size;
+        data->size = chunk_size+INT_SIZE;
 
         pthread_t tid;
         pthread_create(&tid, NULL, sendFile, (void *)data);
