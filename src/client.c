@@ -10,7 +10,7 @@
 
 #include <netinet/in.h>
 #define PORT 9003
-#define INT_SIZE 4
+#define INT_SIZE 8
 // #define LARGE_INT_SIZE 4
 
 //Save char array to file
@@ -64,7 +64,7 @@ int handshake(int socket,int number_of_chunks){
     //Set number of chunks
     sendFile(socket, number_of_chunks_str);
 
-    char  chunk_size_str[4];
+    char  chunk_size_str[INT_SIZE];
     recv(socket, chunk_size_str, INT_SIZE, 0);
 
     int chunk_size = atoi(chunk_size_str);
