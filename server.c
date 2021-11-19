@@ -1,67 +1,46 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h> 
+
+
+#include <sys/types.h>
 #include <sys/socket.h>
+
 #include <netinet/in.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <fcntl.h> // for open
-#include <unistd.h> // for close
 
 #define MAX_SIZE 1024
-
+#define PORT 9002
 
 
 
 int main() {
 
-    int mainSocket,newSocket;
+    char sample_text[MAX_SIZE] = "Hello brother";
 
+    int network_socket;
+    struct sockaddr_in server_address;
 
+    //Create network socket
+    network_socket = socket(AF_INET, SOCK_STREAM, 0);
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(PORT);
+    server_address.sin_addr.s_addr = INADDR_ANY;
 
-    struct sockaddr_in serverAddr;
-    struct sockaddr_storage serverStorage;
-    socklen_t addr_size;
+    //Bind the socket to the address
+    bind(network_socket, (struct sockaddr *) &server_address, sizeof(server_address));
 
+    //Listen for incoming connections
+    listen(network_socket, 5);
 
+    //Accept an incoming connection
+    int client_socket = accept(network_socket, NULL, NULL);
     
-    mainSocket = socket(AF_INET, SOCK_STREAM, 0);
-    
-    //Set the family of the address
-    serverAddr.sin_family = AF_INET;
-    //Set the port
-    serverAddr.sin_port = htons(8080);
-    //Set the IP address
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    //Send the text to the client
+    send(client_socket, sample_text, MAX_SIZE, 0);
 
-    memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
+    //Close the socket
+    close(network_socket);
 
-    //Bind socket to server address
-    bind(mainSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
-
-
-    if(listen(mainSocket,1)==0)
-        printf("Listening\n");
-    else
-        printf("Error\n");
-
-      /*---- Accept call creates a new socket for the incoming connection ----*/
-    addr_size = sizeof serverStorage;
-    newSocket = accept(mainSocket, (struct sockaddr *) &serverStorage, &addr_size);
-
-        /*---- Send message to the socket of the incoming connection ----*/
-
-        
-        FILE *f;
-        char buffer[MAX_SIZE];
-        f = fopen("sample.txt", "rb");
-        if (f){fread(buffer, MAX_SIZE, 1, f);}
-
-        
-
-    strcpy(buffer,"Hello World\n");
-    send(newSocket,buffer,13,0);
-
-    close(newSocket);
-    close(mainSocket);
 
    return 0;
 }
