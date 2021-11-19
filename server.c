@@ -3,6 +3,7 @@
 #include <unistd.h> 
 
 
+
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -15,7 +16,6 @@
 
 int main() {
 
-    char sample_text[MAX_SIZE] = "Hello brother";
 
     int network_socket;
     struct sockaddr_in server_address;
@@ -35,8 +35,35 @@ int main() {
     //Accept an incoming connection
     int client_socket = accept(network_socket, NULL, NULL);
     
+
+    //Load file into buffer
+    char    *buffer;
+    long    numbytes;
+    FILE* file = fopen("sample.txt", "r");
+
+    /* Get the number of bytes */
+    fseek(file, 0L, SEEK_END);
+    numbytes = ftell(file);
+    
+    /* reset the file position indicator to 
+    the beginning of the file */
+    fseek(file, 0L, SEEK_SET);	
+    
+    /* grab sufficient memory for the 
+    buffer to hold the text */
+    buffer = (char*)calloc(numbytes, sizeof(char));	
+    
+    /* memory error */
+    if(buffer == NULL)
+        return 1;
+    
+    /* copy all the text into the buffer */
+    fread(buffer, sizeof(char), numbytes, file);
+    fclose(file);
+
+
     //Send the text to the client
-    send(client_socket, sample_text, MAX_SIZE, 0);
+    send(client_socket, &buffer, MAX_SIZE, 0);
 
     //Close the socket
     close(network_socket);
