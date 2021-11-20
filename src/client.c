@@ -9,7 +9,7 @@
 
 
 #include <netinet/in.h>
-#define PORT 9005
+#define PORT 9003
 #define INT_SIZE 8
 // #define LARGE_INT_SIZE 4
 
@@ -135,29 +135,21 @@ int main(){
         for (int i=chunk_size;i<chunk_size+INT_SIZE+1;i++){
             buffer[i-chunk_size] = chunk_recv[i];
         }
-
-        int remove_space = chunk_recv[chunk_size+INT_SIZE] == '1' ? extra_space : 0;
-        printf("%c\n",chunk_recv[chunk_size+INT_SIZE]);
-        printf("%d\n",remove_space);
-
      
         //str to int
         int position = atoi(buffer);
-        printf("%d\n", position);
+
         
-
-
-        int new_chunk_size = chunk_size ;
-        printf("NEW CHUNK %d\n", remove_space);
-
-        saveToFile(fp, chunk_recv, new_chunk_size ,position*new_chunk_size);
+        saveToFile(fp, chunk_recv, chunk_size ,position*chunk_size);
 
     }
+
     fclose(fp);
 
- 
 
-
+    //truncate
+    truncate("./sample/test1.png", (chunk_size*number_of_chunks)-extra_space);
+    fclose(fp);
 
       
     close(network_socket);

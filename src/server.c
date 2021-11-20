@@ -10,7 +10,7 @@
 
 #include <netinet/in.h>
 
-#define PORT 9005
+#define PORT 9003
 #define INT_SIZE 8
 
 struct args
@@ -114,7 +114,7 @@ int main()
     long file_size = getFileSize("./sample/test.png");
     printf("File Size: %lu\n", file_size);
     int chunk_size = (file_size / number_of_chunks);
-    chunk_size = chunk_size == 0 ? 1 : chunk_size;
+    chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
 
     printf("Chunk Size: %d\n", chunk_size);
 
