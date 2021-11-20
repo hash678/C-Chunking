@@ -5,11 +5,10 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
 
 #include <netinet/in.h>
-#define PORT 9003
+#define PORT 9005
 #define INT_SIZE 8
 // #define LARGE_INT_SIZE 4
 
@@ -19,6 +18,20 @@ void createEmptyFile(char *fileName, int x) {
     fseek(fp, x-1 , SEEK_SET);
     fputc('\0', fp);
     fclose(fp);
+}
+
+
+void fixFile(int newSize, char *fileName) {
+
+    #ifdef _WIN32
+    chsize(fileno(fopen(fileName, "r+")), newSize);
+    #elif _WIN64
+    chsize(fileno(fopen(fileName, "r+")), newSize);
+    #else 
+    #include <unistd.h>
+    truncate(fileName, newSize);
+    #endif
+
 }
 
 //Save char array to file
@@ -56,11 +69,6 @@ char *cleanChunk(char *chunk, int size){
 }
 
 
-// char *getFile(int socket,int chunk_size){
-//     char *chunk_recieved = malloc(chunk_size);
-//     recv(socket, chunk_recieved, chunk_size, 0);
-//     return chunk_recieved;
-// }
 int copyData(char* a, char*b,int pos){
     for(int i=0;i<strlen(b);i++){
         a[i+pos] = b[i];
@@ -89,6 +97,10 @@ int handshake(int socket,int number_of_chunks){
 
 int main(){
  
+    int number_of_chunks = 128;
+    char* path = "./sample/test1.pdf";
+
+
     //Create network socket
     int network_socket;
     network_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -110,7 +122,6 @@ int main(){
         return 1;
     }
 
-    int number_of_chunks = 128;
     int chunk_size = handshake(network_socket,number_of_chunks);
     
 
@@ -121,8 +132,8 @@ int main(){
     int current_chunk = 0;
 
 
-    createEmptyFile("./sample/test1.png",(chunk_size*number_of_chunks)-extra_space);
-    FILE *fp = fopen("./sample/test1.png", "r+b");
+    createEmptyFile(path,(chunk_size*number_of_chunks)-extra_space);
+    FILE *fp = fopen(path, "r+b");
 
 
     while (current_chunk < number_of_chunks){
@@ -145,13 +156,9 @@ int main(){
     }
 
     fclose(fp);
-
-
-    //truncate
-    truncate("./sample/test1.png", (chunk_size*number_of_chunks)-extra_space);
-    fclose(fp);
-
+    // close(network_socket);
+    fixFile((chunk_size*number_of_chunks)-extra_space, path);
       
-    close(network_socket);
     return 0;
 }
+

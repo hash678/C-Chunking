@@ -10,7 +10,7 @@
 
 #include <netinet/in.h>
 
-#define PORT 9003
+#define PORT 9005
 #define INT_SIZE 8
 
 struct args
@@ -100,6 +100,8 @@ char *loadFile(FILE *file, int size,int position)
 int main()
 {
 
+
+    char *path = "./sample/test.pdf";
     //Setup Basic Socket
     int network_socket = setupSocket();
     int client_socket = accept(network_socket, NULL, NULL);
@@ -111,14 +113,14 @@ int main()
 
     // 31 / 4 = 7..2 + 1 = 8
 
-    long file_size = getFileSize("./sample/test.png");
+    long file_size = getFileSize(path);
     printf("File Size: %lu\n", file_size);
     int chunk_size = (file_size / number_of_chunks);
     chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
 
     printf("Chunk Size: %d\n", chunk_size);
 
-    FILE *f = fopen("./sample/test.png", "r");
+    FILE *f = fopen(path, "r");
     printf("File Opened");
 
     int extra_space = (chunk_size*number_of_chunks) - file_size;
