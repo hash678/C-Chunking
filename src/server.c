@@ -10,7 +10,7 @@
 
 #include <netinet/in.h>
 
-#define PORT 9005
+#define PORT 9004
 #define INT_SIZE 8
 
 struct args
@@ -101,7 +101,7 @@ int main()
 {
 
 
-    char *path = "./sample/test.pdf";
+    char *path = "./sample/sample.mp4";
     //Setup Basic Socket
     int network_socket = setupSocket();
     int client_socket = accept(network_socket, NULL, NULL);
@@ -117,6 +117,12 @@ int main()
     printf("File Size: %lu\n", file_size);
     int chunk_size = (file_size / number_of_chunks);
     chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
+
+
+    if (chunk_size > 64*1024){
+        printf("Chunk Size is too big\n");
+        exit(1);
+    }
 
     printf("Chunk Size: %d\n", chunk_size);
 

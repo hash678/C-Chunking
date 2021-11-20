@@ -8,7 +8,7 @@
 
 
 #include <netinet/in.h>
-#define PORT 9005
+#define PORT 9004
 #define INT_SIZE 8
 // #define LARGE_INT_SIZE 4
 
@@ -97,8 +97,8 @@ int handshake(int socket,int number_of_chunks){
 
 int main(){
  
-    int number_of_chunks = 128;
-    char* path = "./sample/test1.pdf";
+    int number_of_chunks = 20000;
+    char* path = "./sample/sample1.mp4";
 
 
     //Create network socket
@@ -146,9 +146,10 @@ int main(){
         for (int i=chunk_size;i<chunk_size+INT_SIZE+1;i++){
             buffer[i-chunk_size] = chunk_recv[i];
         }
-     
+        printf("%s\n", buffer);
         //str to int
         int position = atoi(buffer);
+        printf("%d\n", position);
 
         
         saveToFile(fp, chunk_recv, chunk_size ,position*chunk_size);
