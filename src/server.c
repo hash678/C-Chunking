@@ -10,23 +10,39 @@
 
 #include <netinet/in.h>
 
-#define PORT 9004
-#define INT_SIZE 8
+#define PORT 1000
+#define INT_SIZE 32
 
 struct args
 {
-    int socket;
+    int port;
     char *chunk;
     int size;
 };
 
 void *sendFile(void *input)
 {
-    int socket = ((struct args *)input)->socket;
+
+    int port = ((struct args *)input)->port;
     char *chunk = ((struct args *)input)->chunk;
     int size = ((struct args *)input)->size;
 
-    send(socket, chunk, size, 0);
+    int packet_socket;
+    struct sockaddr_in packet_server_address;
+    packet_socket = socket(AF_INET, SOCK_STREAM, 0);
+    packet_server_address.sin_family = AF_INET;
+    packet_server_address.sin_port = htons(port);
+    packet_server_address.sin_addr.s_addr = INADDR_ANY;
+    printf("Binding socket to port %d\n", port);
+    int did_bind = bind(packet_socket, (struct sockaddr *)&packet_server_address, sizeof(packet_server_address));
+    if (did_bind == -1)
+    {
+        printf("Error binding socket\n");
+        exit(1);
+    }
+    listen(packet_socket, 5);
+    int recieve_socket = accept(packet_socket, NULL, NULL);
+    send(recieve_socket, chunk, size, 0);
     return 0;
 }
 
@@ -86,9 +102,9 @@ char *loadFile(FILE *file, int size,int position)
     char *string = malloc(size+INT_SIZE);
     fread(string, 1, size, file);
 
-    printf("Pos: %d\n", position);
+    // printf("Pos: %d\n", position);
 
-    for (int x = size; x < size+INT_SIZE; x++)
+    for (int x = size; x < size+INT_SIZE+1; x++)
     {
         string[x] = string_str[x-size];
     }
@@ -101,7 +117,7 @@ int main()
 {
 
 
-    char *path = "./sample/sample.mp4";
+    char *path = "./sample/sample.png";
     //Setup Basic Socket
     int network_socket = setupSocket();
     int client_socket = accept(network_socket, NULL, NULL);
@@ -118,11 +134,19 @@ int main()
     int chunk_size = (file_size / number_of_chunks);
     chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
 
+    printf("Chunk Size: %d\n", chunk_size);
 
     if (chunk_size > 64*1024){
         printf("Chunk Size is too big\n");
         exit(1);
     }
+
+
+    //Bind ports
+
+   
+
+
 
     printf("Chunk Size: %d\n", chunk_size);
 
@@ -145,7 +169,13 @@ int main()
     sprintf(extra_space_str, "%d", extra_space);
     sendData(client_socket, extra_space_str, INT_SIZE);
 
+
+    // sendData(client_socket, "start", 5);
+
+
+
     pthread_t threads[number_of_chunks];
+
 
     for (int x = 0; x < number_of_chunks; x++)
     {
@@ -157,14 +187,13 @@ int main()
 
 
         struct args *data = (struct args *)malloc(sizeof(struct args));
-        data->socket = client_socket;
+        data->port = PORT+x+1;
         data->chunk = chunk;
-        data->size = chunk_size+INT_SIZE+1;
+        data->size = chunk_size+INT_SIZE;
 
         pthread_t tid;
         pthread_create(&tid, NULL, sendFile, (void *)data);
         threads[x] = tid;
-        //pthread_join(tid, NULL);
     }
 
     for (int x = 0; x < number_of_chunks; x++)
