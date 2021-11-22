@@ -70,7 +70,7 @@ long getFileSize(char *fileName)
     return size;
 }
 
-char *loadFile(FILE *file, int size,int position)
+char *loadFile(FILE *file, int size, int position)
 {
 
     if (file == NULL)
@@ -83,25 +83,24 @@ char *loadFile(FILE *file, int size,int position)
     char string_str[INT_SIZE];
     sprintf(string_str, "%d", position);
 
-    char *string = malloc(size+INT_SIZE);
+    char *string = malloc(size + INT_SIZE);
     fread(string, 1, size, file);
 
     printf("Pos: %d\n", position);
 
-    for (int x = size; x < size+INT_SIZE; x++)
+    for (int x = size; x < size + INT_SIZE; x++)
     {
-        string[x] = string_str[x-size];
+        string[x] = string_str[x - size];
     }
     return string;
 }
 
-
-
 int main()
 {
+    char path[100];
+    printf("Enter path of input file: ");
+    scanf("%s", path);
 
-
-    char *path = "./sample/sample.mp4";
     //Setup Basic Socket
     int network_socket = setupSocket();
     int client_socket = accept(network_socket, NULL, NULL);
@@ -118,8 +117,8 @@ int main()
     int chunk_size = (file_size / number_of_chunks);
     chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
 
-
-    if (chunk_size > 64*1024){
+    if (chunk_size > 64 * 1024)
+    {
         printf("Chunk Size is too big\n");
         exit(1);
     }
@@ -129,16 +128,15 @@ int main()
     FILE *f = fopen(path, "r");
     printf("File Opened");
 
-    int extra_space = (chunk_size*number_of_chunks) - file_size;
+    int extra_space = (chunk_size * number_of_chunks) - file_size;
     printf("Extra Space: %d\n", extra_space);
     printf("Number of Chunks: %d\n", number_of_chunks);
-        printf("chunk_size*number_of_chunks: %d\n", chunk_size*number_of_chunks);
+    printf("chunk_size*number_of_chunks: %d\n", chunk_size * number_of_chunks);
 
     //Sending the chunk size
     char chunk_size_str[INT_SIZE];
     sprintf(chunk_size_str, "%d", chunk_size);
     sendData(client_socket, chunk_size_str, INT_SIZE);
-
 
     //Sending the extra space
     char extra_space_str[INT_SIZE];
@@ -149,17 +147,16 @@ int main()
 
     for (int x = 0; x < number_of_chunks; x++)
     {
-        char *chunk = loadFile(f, chunk_size,x);
+        char *chunk = loadFile(f, chunk_size, x);
 
-        char extra  = (extra_space != 0 && (number_of_chunks == x+1)) ? '1' : '0';
+        char extra = (extra_space != 0 && (number_of_chunks == x + 1)) ? '1' : '0';
 
-        chunk[chunk_size+INT_SIZE] = extra;
-
+        chunk[chunk_size + INT_SIZE] = extra;
 
         struct args *data = (struct args *)malloc(sizeof(struct args));
         data->socket = client_socket;
         data->chunk = chunk;
-        data->size = chunk_size+INT_SIZE+1;
+        data->size = chunk_size + INT_SIZE + 1;
 
         pthread_t tid;
         pthread_create(&tid, NULL, sendFile, (void *)data);
