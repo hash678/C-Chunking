@@ -1,15 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+
 #include <string.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
 
 #include <netinet/in.h>
+
+#include <sys/stat.h>
+
 #define PORT 9004
 #define INT_SIZE 8
-// #define LARGE_INT_SIZE 4
-
 void createEmptyFile(char *fileName, int x)
 {
     FILE *fp = fopen(fileName, "w");
@@ -20,7 +24,6 @@ void createEmptyFile(char *fileName, int x)
 
 void fixFile(int newSize, char *fileName)
 {
-
 #ifdef _WIN32
     chsize(fileno(fopen(fileName, "r+")), newSize);
 #elif _WIN64
@@ -38,47 +41,11 @@ void saveToFile(FILE *fp, char *buffer, int size, int position)
     fwrite(buffer, 1, size, fp);
 }
 
-int getPosition(char *str, int size)
-{
-    char position[INT_SIZE];
-    for (int i = size - INT_SIZE; i < size; i++)
-    {
-        position[i - size + INT_SIZE] = str[i];
-    }
-    int position_int = atoi(position);
-    return position_int;
-}
 
 int sendFile(int socket, char *data)
 {
     send(socket, data, sizeof(data), 0);
     return 0;
-}
-
-char *getText(char *data, int size)
-{
-    char *text = malloc(size);
-    memcpy(text, data, size);
-    return text;
-}
-
-char *cleanChunk(char *chunk, int size)
-{
-    char *text = malloc(size);
-    memcpy(text, chunk, size);
-    return text;
-}
-
-int copyData(char *a, char *b, int pos)
-{
-    for (int i = 0; i < strlen(b); i++)
-    {
-        a[i + pos] = b[i];
-    }
-    int final_pos = pos + strlen(b);
-
-    //print a
-    return final_pos;
 }
 
 int handshake(int socket, int number_of_chunks)
@@ -93,19 +60,14 @@ int handshake(int socket, int number_of_chunks)
     recv(socket, chunk_size_str, INT_SIZE, 0);
 
     int chunk_size = atoi(chunk_size_str);
-    printf("%d\n", chunk_size);
+    // printf("%d\n", chunk_size);
     return chunk_size;
 }
 
-int main()
+int main(int argc, char const *argv[])
 {
-    int number_of_chunks;
-    printf("Enter number of threads: ");
-    scanf("%d", &number_of_chunks);
 
-    char path[100];
-    printf("Enter path of output file: ");
-    scanf("%s", path);
+    printf("Welcome to Process B.\n");
 
     //Create network socket
     int network_socket;
@@ -129,6 +91,20 @@ int main()
         return 1;
     }
 
+    char path_to_inputFile[1024];
+    printf("Enter path to input file: ");
+    scanf("%s", path_to_inputFile);
+
+    send(network_socket, path_to_inputFile, strlen(path_to_inputFile), 0);
+
+    int number_of_chunks;
+    printf("Enter number of threads: ");
+    scanf("%d", &number_of_chunks);
+
+    char path[100];
+    printf("Enter path of output file: ");
+    scanf("%s", path);
+
     int chunk_size = handshake(network_socket, number_of_chunks);
 
     char extra_space_str[INT_SIZE];
@@ -151,16 +127,16 @@ int main()
         {
             buffer[i - chunk_size] = chunk_recv[i];
         }
-        printf("%s\n", buffer);
+        // printf("%s\n", buffer);
         //str to int
         int position = atoi(buffer);
-        printf("%d\n", position);
+        // printf("%d\n", position);
 
         saveToFile(fp, chunk_recv, chunk_size, position * chunk_size);
     }
 
     fclose(fp);
-    // close(network_socket);
+    close(network_socket);
     fixFile((chunk_size * number_of_chunks) - extra_space, path);
 
     return 0;

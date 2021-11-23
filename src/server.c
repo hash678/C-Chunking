@@ -2,13 +2,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-
 #include <string.h>
-
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #include <netinet/in.h>
+#include <sys/stat.h>
 
 #define PORT 9004
 #define INT_SIZE 8
@@ -20,6 +18,14 @@ struct args
     int size;
 };
 
+// Check if the file path exists
+int file_exists(char *filename)
+{
+    struct stat buffer;
+    return (stat(filename, &buffer) == 0);
+}
+
+// send a chunk of the file to the sokcet
 void *sendFile(void *input)
 {
     int socket = ((struct args *)input)->socket;
@@ -30,10 +36,42 @@ void *sendFile(void *input)
     return 0;
 }
 
+long getFileSize(char *fileName)
+{
+    FILE *file = fopen(fileName, "r");
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fclose(file);
+    return size;
+}
+
+// send data to the sokcet
 int sendData(int socket, char *data, int size)
 {
     send(socket, data, size, 0);
     return 0;
+}
+
+char *loadFile(FILE *file, int size, int position)
+{
+    if (file == NULL)
+    {
+        printf("Error opening file\n");
+        exit(1);
+    }
+
+    //int to str
+    char string_str[INT_SIZE];
+    sprintf(string_str, "%d", position);
+
+    char *string = malloc(size + INT_SIZE);
+    fread(string, 1, size, file);
+
+    for (int x = size; x < size + INT_SIZE; x++)
+    {
+        string[x] = string_str[x - size];
+    }
+    return string;
 }
 
 int setupSocket()
@@ -61,115 +99,98 @@ int setupSocket()
     return network_socket;
 }
 
-long getFileSize(char *fileName)
+int main(int argc, char const *argv[])
 {
-    FILE *file = fopen(fileName, "r");
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    fclose(file);
-    return size;
-}
+    printf("Wekcome to Process A. Please Enter a file name in Process B.\n");
 
-char *loadFile(FILE *file, int size, int position)
-{
-
-    if (file == NULL)
-    {
-        printf("Error opening file\n");
-        exit(1);
-    }
-
-    //int to str
-    char string_str[INT_SIZE];
-    sprintf(string_str, "%d", position);
-
-    char *string = malloc(size + INT_SIZE);
-    fread(string, 1, size, file);
-
-    printf("Pos: %d\n", position);
-
-    for (int x = size; x < size + INT_SIZE; x++)
-    {
-        string[x] = string_str[x - size];
-    }
-    return string;
-}
-
-int main()
-{
-    char path[100];
-    printf("Enter path of input file: ");
-    scanf("%s", path);
-
-    //Setup Basic Socket
     int network_socket = setupSocket();
     int client_socket = accept(network_socket, NULL, NULL);
 
-    char rec_buffer[INT_SIZE];
-    recv(client_socket, rec_buffer, sizeof(rec_buffer), 0);
+    char path[1024];
 
-    int number_of_chunks = atoi(rec_buffer);
+    read(client_socket, path, 1024);
 
-    // 31 / 4 = 7..2 + 1 = 8
-
-    long file_size = getFileSize(path);
-    printf("File Size: %lu\n", file_size);
-    int chunk_size = (file_size / number_of_chunks);
-    chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
-
-    if (chunk_size > 64 * 1024)
+    if (file_exists(path))
     {
-        printf("Chunk Size is too big\n");
+        printf("Retrieved Path: %s\n", path);
+        printf("File succesfully found.\n");
+
+        char rec_buffer[INT_SIZE];
+        recv(client_socket, rec_buffer, sizeof(rec_buffer), 0);
+
+        int number_of_chunks = atoi(rec_buffer);
+
+        long file_size = getFileSize(path);
+        printf("File Size: %lu\n", file_size);
+        int chunk_size = (file_size / number_of_chunks);
+        chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
+
+
+        printf("Chunk Size: %d\n", chunk_size);
+
+        if (chunk_size > 64 * 1024)
+        {
+            printf("Chunk Size is too big\n");
+            exit(1);
+        }
+
+
+        FILE *f = fopen(path, "r");
+
+        printf("File Opened.\n \n");
+
+        int extra_space = (chunk_size * number_of_chunks) - file_size;
+        printf("Extra Space: %d\n", extra_space);
+        printf("Number of Chunks: %d\n", number_of_chunks);
+        printf("chunk_size x number_of_chunks: %d\n", chunk_size * number_of_chunks);
+
+        //Sending the chunk size
+        char chunk_size_str[INT_SIZE];
+        sprintf(chunk_size_str, "%d", chunk_size);
+        sendData(client_socket, chunk_size_str, INT_SIZE);
+
+        //Sending the extra space
+        char extra_space_str[INT_SIZE];
+        sprintf(extra_space_str, "%d", extra_space);
+        sendData(client_socket, extra_space_str, INT_SIZE);
+
+        pthread_t threads[number_of_chunks];
+
+        for (int x = 0; x < number_of_chunks; x++)
+        {
+            char *chunk = loadFile(f, chunk_size, x);
+
+            char extra = (extra_space != 0 && (number_of_chunks == x + 1)) ? '1' : '0';
+
+            chunk[chunk_size + INT_SIZE] = extra;
+
+            struct args *data = (struct args *)malloc(sizeof(struct args));
+            data->socket = client_socket;
+            data->chunk = chunk;
+            data->size = chunk_size + INT_SIZE + 1;
+
+            pthread_t tid;
+            pthread_create(&tid, NULL, sendFile, (void *)data);
+            threads[x] = tid;
+        }
+
+        for (int x = 0; x < number_of_chunks; x++)
+        {
+            pthread_join(threads[x], NULL);
+        }
+
+        printf("File succesfully sent to process B. ");
+        fclose(f);
+        close(network_socket);
+    }
+
+    else
+    {
+        printf("Retrieved Path: %s\n", path);
+        close(network_socket);
+        printf("File not found.\n");
         exit(1);
     }
-
-    printf("Chunk Size: %d\n", chunk_size);
-
-    FILE *f = fopen(path, "r");
-    printf("File Opened");
-
-    int extra_space = (chunk_size * number_of_chunks) - file_size;
-    printf("Extra Space: %d\n", extra_space);
-    printf("Number of Chunks: %d\n", number_of_chunks);
-    printf("chunk_size*number_of_chunks: %d\n", chunk_size * number_of_chunks);
-
-    //Sending the chunk size
-    char chunk_size_str[INT_SIZE];
-    sprintf(chunk_size_str, "%d", chunk_size);
-    sendData(client_socket, chunk_size_str, INT_SIZE);
-
-    //Sending the extra space
-    char extra_space_str[INT_SIZE];
-    sprintf(extra_space_str, "%d", extra_space);
-    sendData(client_socket, extra_space_str, INT_SIZE);
-
-    pthread_t threads[number_of_chunks];
-
-    for (int x = 0; x < number_of_chunks; x++)
-    {
-        char *chunk = loadFile(f, chunk_size, x);
-
-        char extra = (extra_space != 0 && (number_of_chunks == x + 1)) ? '1' : '0';
-
-        chunk[chunk_size + INT_SIZE] = extra;
-
-        struct args *data = (struct args *)malloc(sizeof(struct args));
-        data->socket = client_socket;
-        data->chunk = chunk;
-        data->size = chunk_size + INT_SIZE + 1;
-
-        pthread_t tid;
-        pthread_create(&tid, NULL, sendFile, (void *)data);
-        threads[x] = tid;
-        //pthread_join(tid, NULL);
-    }
-
-    for (int x = 0; x < number_of_chunks; x++)
-    {
-        pthread_join(threads[x], NULL);
-    }
-
-    fclose(f);
 
     close(network_socket);
 
