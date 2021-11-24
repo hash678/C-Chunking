@@ -2,18 +2,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-
 #include <string.h>
-
-#include <sys/types.h>
 #include <sys/socket.h>
-
 #include <netinet/in.h>
-
 #include <sys/stat.h>
 
 #define PORT 9004
 #define INT_SIZE 8
+
 void createEmptyFile(char *fileName, int x)
 {
     FILE *fp = fopen(fileName, "w");
@@ -40,7 +36,6 @@ void saveToFile(FILE *fp, char *buffer, int size, int position)
     fseek(fp, position, SEEK_SET);
     fwrite(buffer, 1, size, fp);
 }
-
 
 int sendFile(int socket, char *data)
 {
@@ -97,6 +92,7 @@ int main(int argc, char const *argv[])
 
     send(network_socket, path_to_inputFile, strlen(path_to_inputFile), 0);
 
+
     int number_of_chunks;
     printf("Enter number of threads: ");
     scanf("%d", &number_of_chunks);
@@ -116,27 +112,24 @@ int main(int argc, char const *argv[])
     createEmptyFile(path, (chunk_size * number_of_chunks) - extra_space);
     FILE *fp = fopen(path, "r+b");
 
-    while (current_chunk < number_of_chunks)
+    for (int x = 0; x < number_of_chunks; x++)
     {
         char chunk_recv[chunk_size + INT_SIZE + 2];
         recv(network_socket, chunk_recv, chunk_size + INT_SIZE + 1, 0);
-        current_chunk += 1;
-
         char buffer[INT_SIZE];
         for (int i = chunk_size; i < chunk_size + INT_SIZE + 1; i++)
         {
             buffer[i - chunk_size] = chunk_recv[i];
         }
-        // printf("%s\n", buffer);
         //str to int
         int position = atoi(buffer);
-        // printf("%d\n", position);
-
         saveToFile(fp, chunk_recv, chunk_size, position * chunk_size);
+        current_chunk += 1;
     }
 
     fclose(fp);
     close(network_socket);
+    shutdown(network_socket, 2);
     fixFile((chunk_size * number_of_chunks) - extra_space, path);
 
     return 0;

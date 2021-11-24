@@ -25,14 +25,20 @@ int file_exists(char *filename)
     return (stat(filename, &buffer) == 0);
 }
 
+// pthread_mutex_t lock;
+
 // send a chunk of the file to the sokcet
 void *sendFile(void *input)
 {
+    // pthread_mutex_lock(&lock);
     int socket = ((struct args *)input)->socket;
     char *chunk = ((struct args *)input)->chunk;
     int size = ((struct args *)input)->size;
 
     send(socket, chunk, size, 0);
+
+    // pthread_mutex_unlock(&lock);
+
     return 0;
 }
 
@@ -125,15 +131,13 @@ int main(int argc, char const *argv[])
         int chunk_size = (file_size / number_of_chunks);
         chunk_size = chunk_size == 0 ? 1 : chunk_size + 1;
 
-
         printf("Chunk Size: %d\n", chunk_size);
 
-        if (chunk_size > 64 * 1024)
-        {
-            printf("Chunk Size is too big\n");
-            exit(1);
-        }
-
+        // if (chunk_size > 64 * 1024)
+        // {
+        //     printf("Chunk Size is too big\n");
+        //     exit(1);
+        // }
 
         FILE *f = fopen(path, "r");
 
@@ -172,10 +176,6 @@ int main(int argc, char const *argv[])
             pthread_t tid;
             pthread_create(&tid, NULL, sendFile, (void *)data);
             threads[x] = tid;
-        }
-
-        for (int x = 0; x < number_of_chunks; x++)
-        {
             pthread_join(threads[x], NULL);
         }
 
@@ -187,12 +187,12 @@ int main(int argc, char const *argv[])
     else
     {
         printf("Retrieved Path: %s\n", path);
-        close(network_socket);
         printf("File not found.\n");
         exit(1);
     }
 
     close(network_socket);
+    shutdown(network_socket, 2);
 
     return 0;
 }
