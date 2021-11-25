@@ -3,75 +3,23 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
 
-#define PORT 9004
-#define INT_SIZE 8
+#define PORT 2000
+#define INT_SIZE 4
+#define LONG_SIZE 8
 
 struct args
 {
-    int port;
-    FILE *file;
-    int chunk_size;
+    int size;
+    int thread_number;
 };
 
-void createEmptyFile(char *fileName, int x)
+int setupSocket(int i)
 {
-    FILE *fp = fopen(fileName, "w");
-    fseek(fp, x - 1, SEEK_SET);
-    fputc('\0', fp);
-    fclose(fp);
-}
-
-void fixFile(int newSize, char *fileName)
-{
-#ifdef _WIN32
-    chsize(fileno(fopen(fileName, "r+")), newSize);
-#elif _WIN64
-    chsize(fileno(fopen(fileName, "r+")), newSize);
-#else
-#include <unistd.h>
-    truncate(fileName, newSize);
-#endif
-}
-
-//Save char array to file
-void saveToFile(FILE *fp, char *buffer, int size, int position)
-{
-    fseek(fp, position, SEEK_SET);
-    fwrite(buffer, 1, size, fp);
-}
-
-int sendFile(int socket, char *data)
-{
-    send(socket, data, sizeof(data), 0);
-    return 0;
-}
-
-int handshake(int socket, int number_of_chunks)
-{
-    char number_of_chunks_str[INT_SIZE];
-    sprintf(number_of_chunks_str, "%d", number_of_chunks);
-
-    //Set number of chunks
-    sendFile(socket, number_of_chunks_str);
-
-    char chunk_size_str[INT_SIZE];
-    recv(socket, chunk_size_str, INT_SIZE, 0);
-
-    int chunk_size = atoi(chunk_size_str);
-    // printf("%d\n", chunk_size);
-    return chunk_size;
-}
-
-
-
-int main(int argc, char const *argv[])
-{
-    printf("Welcome to Process B.\n");
-
     //Create network socket
     int network_socket;
     network_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -79,7 +27,7 @@ int main(int argc, char const *argv[])
     //Create the address to connect to
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(PORT);
+    serverAddr.sin_port = htons(PORT + i);
 
     //Set the IP address to 0.0.0.0 i.e Localhost
     serverAddr.sin_addr.s_addr = INADDR_ANY;
@@ -90,51 +38,131 @@ int main(int argc, char const *argv[])
     //Check if connection successful
     if (did_connect == -1)
     {
-        printf("Error connecting to server\n");
-        return 1;
+        printf("Error connecting to socket %d\n", PORT + i);
+        exit(1);
     }
 
-    char path_to_inputFile[1024];
-    printf("Enter path to input file: ");
-    scanf("%s", path_to_inputFile);
+    return network_socket;
+}
 
-    send(network_socket, path_to_inputFile, strlen(path_to_inputFile), 0);
+void createEmptyFile(char *fileName, int x)
+{
+    FILE *fp = fopen(fileName, "w");
+    fseek(fp, x - 1, SEEK_SET);
+    fputc('\0', fp);
+    fclose(fp);
+}
 
-    int number_of_chunks;
-    printf("Enter number of threads: ");
-    scanf("%d", &number_of_chunks);
+//Save char array to file
+void saveToFile(FILE *fp, char *buffer, int size, int position)
+{
+    fseek(fp, position, SEEK_SET);
+    fwrite(buffer, 1, size, fp);
+}
 
-    char path[100];
-    printf("Enter path of output file: ");
-    scanf("%s", path);
+void *recieveChunk(void *input)
+{
+    // int port = ((struct args *)input)->port;
+    int size = ((struct args *)input)->size;
+    int thread_number = ((struct args *)input)->thread_number;
 
-    int chunk_size = handshake(network_socket, number_of_chunks);
+    int port = setupSocket(thread_number);
 
-    char extra_space_str[INT_SIZE];
-    recv(network_socket, extra_space_str, INT_SIZE, 0);
-    int extra_space = atoi(extra_space_str);
+    char *chunk = malloc(size);
 
-    createEmptyFile(path, (chunk_size * number_of_chunks) - extra_space);
-    FILE *fp = fopen(path, "r+b");
+    read(port, chunk, size);
 
-    for (int x = 0; x < number_of_chunks; x++)
+    return (void *)chunk;
+}
+
+long handshake(int socket, int number_of_chunks)
+{
+    char number_of_chunks_str[INT_SIZE];
+    sprintf(number_of_chunks_str, "%d", number_of_chunks);
+
+    //Set number of chunks
+    send(socket, number_of_chunks_str, INT_SIZE, 0);
+
+    char file_size_str[LONG_SIZE];
+    recv(socket, file_size_str, LONG_SIZE, 0);
+
+    long file_size = atoll(file_size_str);
+
+    return file_size;
+}
+
+int main()
+{
+    printf("Welcome to Process B.\n");
+
+    char path_to_inputFile[100] = "./sample/input.txt";
+    // printf("Enter path to input file: ");
+    // scanf("%s", path_to_inputFile);
+
+    char path_to_outputFile[100] = "./sample/output.txt";
+    // printf("Enter path to input file: ");
+    // scanf("%s", path_to_inputFile);
+
+    int network_socket = setupSocket(-1);
+
+    send(network_socket, path_to_inputFile, sizeof(path_to_inputFile), 0);
+
+    int number_of_chunks = 10;
+    // printf("Enter number of threads: ");
+    // scanf("%d", &number_of_chunks);
+
+    long file_size = handshake(network_socket, number_of_chunks);
+
+    printf("File size: %lu\n", file_size);
+
+    char *extra_space_size_str = malloc(INT_SIZE);
+    recv(network_socket, extra_space_size_str, INT_SIZE, 0);
+
+    int extra_space_size = atoi(extra_space_size_str);
+    printf("Extra space size: %d\n", extra_space_size);
+
+    int chunk_size = file_size / number_of_chunks;
+
+    printf("Chunk Size: %d\n", chunk_size);
+
+    createEmptyFile(path_to_outputFile, (chunk_size * number_of_chunks) - extra_space_size);
+    FILE *fp = fopen(path_to_outputFile, "r+b");
+
+    pthread_t threads[number_of_chunks + 1];
+
+    for (int i = 0; i < number_of_chunks; i++)
     {
-        char chunk_recv[chunk_size + INT_SIZE + 2];
-        recv(network_socket, chunk_recv, chunk_size + INT_SIZE + 1, 0);
-        char buffer[INT_SIZE];
-        for (int i = chunk_size; i < chunk_size + INT_SIZE + 1; i++)
-        {
-            buffer[i - chunk_size] = chunk_recv[i];
-        }
-        //str to int
-        int position = atoi(buffer);
-        saveToFile(fp, chunk_recv, chunk_size, position * chunk_size);
+        struct args *data = (struct args *)malloc(sizeof(struct args));
+
+        data->size = chunk_size;
+        data->thread_number = i;
+        pthread_create(&threads[i], NULL, recieveChunk, (void *)data);
+    }
+
+    if (extra_space_size)
+    {
+        struct args *data = (struct args *)malloc(sizeof(struct args));
+
+        data->size = extra_space_size;
+        data->thread_number = number_of_chunks;
+        pthread_create(&threads[number_of_chunks], NULL, recieveChunk, (void *)data);
+    }
+
+    for (int i = 0; i < number_of_chunks; i++)
+    {
+        void *chunk;
+        pthread_join(threads[i], &chunk);
+        saveToFile(fp, chunk, chunk_size, i * chunk_size);
+    }
+
+    if (extra_space_size)
+    {
+        void *extra_space;
+        pthread_join(threads[number_of_chunks], &extra_space);
+        saveToFile(fp, extra_space, extra_space_size, file_size - extra_space_size);
     }
 
     fclose(fp);
-    close(network_socket);
-    shutdown(network_socket, 2);
-    fixFile((chunk_size * number_of_chunks) - extra_space, path);
 
     return 0;
 }
